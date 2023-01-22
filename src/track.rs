@@ -9,9 +9,17 @@ use crate::constants::*;
 pub struct Track {
     pub cursor: usize,
     pub divide: u32,
-    pub pattern: [bool; 8],
+    pub pattern: [u8; 8],
     pub playing: bool,
+    pub mode: Mode,
     seed: u64,
+}
+
+// Track can either be Gate or CV out
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum Mode {
+    Gate,
+    CV,
 }
 
 impl Track {
@@ -21,7 +29,8 @@ impl Track {
             divide: 0,
             seed: 0,
             playing: true,
-            pattern: [false; STEPS_COUNT],
+            mode: Mode::Gate,
+            pattern: [0; STEPS_COUNT],
         }
     }
 
@@ -46,21 +55,31 @@ impl Track {
     }
 
     pub fn randomize(&mut self, probability: f64) {
-        // TODO: review seeding logic?
+        // TODO: review seeding logic, executing seeding logic on every random
+        // action is not really optimized
         let mut rng = SmallRng::seed_from_u64(self.seed);
 
         // set new seed with random u64
         self.seed = rng.next_u64();
 
         // randomly fill array with range 0 255
-        let mut arr = [0u8; 8];
-        rng.fill_bytes(&mut arr);
+        let mut pattern = [0u8; 8];
+        rng.fill_bytes(&mut pattern);
+        rprintln!("Randomized pattern {:?}", pattern);
+
+        if self.mode == Mode::CV {
+            self.pattern = pattern.into();
+            return;
+        }
 
         // define true/false based on probability
         for i in 0..self.pattern.len() {
-            self.pattern[i] = arr[i] > (probability * 255.0) as u8;
+            if pattern[i] > (probability * 255.0) as u8 {
+                self.pattern[i] = 255;
+            } else {
+                self.pattern[i] = 0;
+            }
         }
-        rprintln!("Randomized {:?}", self.pattern);
     }
 
     fn reset(&mut self) {

@@ -33,7 +33,7 @@ test = false
 bench = false
 
 [profile.dev]
-opt-level = 1
+opt-level = 3 # currently running out of space... extra optimization needed otherwise should be 1
 codegen-units = 16
 debug = true
 lto = false

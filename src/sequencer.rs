@@ -29,13 +29,13 @@ pub(crate) fn tick(mut cx: app::tick::Context, instant: fugit::TimerInstantU64<1
 
             // button state
             for i in 0..track.pattern.len() {
-                if track.pattern[i] {
+                if track.pattern[i] == 255 {
                     leds[offset + i].b = 0x10;
                 }
             }
 
             // set gate
-            if track.pattern[track.cursor] {
+            if track.pattern[track.cursor] == 255 {
                 let mut color = match *current_track {
                     0 => RGB {
                         b: 0x05,
@@ -69,12 +69,12 @@ pub(crate) fn tick(mut cx: app::tick::Context, instant: fugit::TimerInstantU64<1
             // set clock
             leds[offset + track.cursor].g = 0x10;
 
-            // TODO: change to global cursor
-            if tracks[0].pattern[track.cursor] == true {
-                gate1.set_high();
-            } else {
-                gate1.set_low();
-            }
+            // Gate example
+            // if tracks[0].pattern[track.cursor] == 255 {
+            //     gate1.set_high();
+            // } else {
+            //     gate1.set_low();
+            // }
         });
 
     app::set_led::spawn().ok();
