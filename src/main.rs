@@ -16,6 +16,7 @@ use stm32f1xx_hal::gpio::{
     gpiob::{PB0, PB12, PB13, PB14, PB15},
     Alternate, Analog, Floating, Input, OpenDrain, Output, Pin, PullUp, PushPull, CRH, CRL,
 };
+use keypad::{keypad_new, keypad_struct, KeypadInput};
 use stm32f1xx_hal::{
     prelude::*,
     adc,
@@ -34,62 +35,40 @@ pub const MODE: Mode = Mode {
     polarity: Polarity::IdleHigh,
 };
 
-use core::convert::Infallible;
-use keypad::{keypad_new, keypad_struct, KeypadInput};
-
-// initialise keyboard
-keypad_struct! {
-    pub struct Keypad<Error = Infallible> {
-        rows: (
-            PA0<Input<PullUp>>,
-            PA1<Input<PullUp>>,
-            PA2<Input<PullUp>>,
-            PA3<Input<PullUp>>,
-            PA4<Input<PullUp>>,
-            PA5<Input<PullUp>>,
-        ),
-        columns: (
-            PA8<Output<OpenDrain>>,
-            PA9<Output<OpenDrain>>,
-            PA10<Output<OpenDrain>>,
-        ),
-    }
-}
-
-// use tinyrand::{StdRand, Wyrand};
-
 use ws2812_spi as ws2812;
 
 mod constants;
-mod inputs;
-mod outputs;
+mod keyboard;
 mod sequencer;
 mod track;
+mod led;
 
 #[rtic::app(device = stm32f1xx_hal::pac, peripherals = true, dispatchers = [SPI1])]
 mod app {
     use super::*;
     use crate::pac::SPI2;
-    use crate::ws2812::Ws2812;
     use mcp49xx::marker::{Buffered, Resolution12Bit, SingleChannel};
-    use smart_leds::{SmartLedsWrite, RGB};
     use systick_monotonic::*;
-    // use tinyrand::RandRange;
 
     use track::*;
     use constants::*;
 
+    use keyboard::{Keyboard, Keypad, Key};
+    use sequencer::{reset_gate, tick, RecordingMode};
+    use led::LedDriver;
+
     #[shared]
     struct Shared {
-        leds: [RGB<u8>; 18],
-        tracks: [Track; TRACKS_COUNT],
         current_track: usize,
         gate1: PB0<Output<PushPull>>,
+        led_driver: LedDriver,
+        tracks: [Track; TRACKS_COUNT],
+        recording_cursor: usize, // when recording in CV mode, keep state of currently recorded step
+        recording_mode: RecordingMode,
     }
 
     #[local]
     struct Local {
-        keypad: Keypad,
         duration: fugit::Duration<u64, 1, 100>,
         trigger_length: fugit::Duration<u64, 1, 100>,
         adc1: adc::Adc<pac::ADC1>,
@@ -135,14 +114,7 @@ mod app {
             ),
             u8,
         >,
-        ws: Ws2812<
-            Spi<
-                stm32f1xx_hal::pac::SPI1,
-                Spi1NoRemap,
-                (NoSck, NoMiso, Pin<Alternate<PushPull>, CRL, 'A', 7>),
-                u8,
-            >,
-        >,
+        keyboard: Keyboard,
     }
 
     #[monotonic(binds = SysTick, default = true)]
@@ -167,22 +139,6 @@ mod app {
 
         let mut adc1 = adc::Adc::adc1(cx.device.ADC1, clocks);
 
-        let kp = keypad_new!(Keypad {
-            rows: (
-                gpioa.pa0.into_pull_up_input(&mut gpioa.crl),
-                gpioa.pa1.into_pull_up_input(&mut gpioa.crl),
-                gpioa.pa2.into_pull_up_input(&mut gpioa.crl),
-                gpioa.pa3.into_pull_up_input(&mut gpioa.crl),
-                gpioa.pa4.into_pull_up_input(&mut gpioa.crl),
-                gpioa.pa5.into_pull_up_input(&mut gpioa.crl),
-            ),
-            columns: (
-                gpioa.pa8.into_open_drain_output(&mut gpioa.crh),
-                gpioa.pa9.into_open_drain_output(&mut gpioa.crh),
-                gpioa.pa10.into_open_drain_output(&mut gpioa.crh),
-            ),
-        });
-
         let mut gpiob = cx.device.GPIOB.split();
 
         // init gate1
@@ -204,8 +160,7 @@ mod app {
             clocks,
         );
 
-        let mut leds = [RGB::default(); NUM_LEDS];
-        let mut ws = Ws2812::new(spi_led);
+        let led_driver = LedDriver::new(spi_led);
 
         // DAC
         let pins_dac = (
@@ -227,9 +182,6 @@ mod app {
         dac1.send(&mut spi_dac, cmd).unwrap();
         dac2.send(&mut spi_dac, cmd).unwrap();
 
-        // reset leds
-        ws.write(leds.iter().cloned()).unwrap();
-
         // systick
         let systick = cx.core.SYST;
         let mut mono = Systick::new(systick, 72_000_000);
@@ -243,27 +195,42 @@ mod app {
 
         let duration = systick_monotonic::ExtU64::micros(d as u64);
         let trigger_length = systick_monotonic::ExtU64::micros(t as u64);
+        let recording_cursor = 0;
+        let recording_mode = RecordingMode::Step;
+
+        let keyboard = Keyboard::new(
+            gpioa.pa0.into_pull_up_input(&mut gpioa.crl),
+            gpioa.pa1.into_pull_up_input(&mut gpioa.crl),
+            gpioa.pa2.into_pull_up_input(&mut gpioa.crl),
+            gpioa.pa3.into_pull_up_input(&mut gpioa.crl),
+            gpioa.pa4.into_pull_up_input(&mut gpioa.crl),
+            gpioa.pa5.into_pull_up_input(&mut gpioa.crl),
+            gpioa.pa8.into_open_drain_output(&mut gpioa.crh),
+            gpioa.pa9.into_open_drain_output(&mut gpioa.crh),
+            gpioa.pa10.into_open_drain_output(&mut gpioa.crh),
+        );
 
         tick::spawn_after(duration, mono.now()).unwrap();
-        keyboard::spawn_after(systick_monotonic::ExtU64::micros(5));
+        inputs::spawn_after(systick_monotonic::ExtU64::micros(5));
         // cv_out::spawn_after(systick_monotonic::ExtU64::millis(100));
 
         (
             Shared {
-                leds,
-                tracks,
                 current_track,
                 gate1,
+                led_driver,
+                tracks,
+                recording_cursor,
+                recording_mode,
             },
             Local {
                 duration,
+                keyboard,
                 trigger_length,
-                ws,
                 dac1,
                 dac2,
                 spi_dac,
                 adc1,
-                keypad: kp,
             },
             init::Monotonics(mono),
         )
@@ -290,21 +257,81 @@ mod app {
     //     cv_out::spawn_after(systick_monotonic::ExtU64::millis(500)).unwrap();
     // }
 
-    use crate::inputs::keyboard;
-    use crate::outputs::set_led;
-    use crate::sequencer::{reset_gate, tick};
+    #[task(local = [adc1, keyboard], shared = [tracks, led_driver,  current_track, recording_cursor, recording_mode])]
+    fn inputs(cx: inputs::Context) {
+        let (fn_key, shift_key, nav_key, note_key) = cx.local.keyboard.read();
+
+        (cx.shared.tracks, cx.shared.current_track, cx.shared.recording_cursor, cx.shared.recording_mode).lock(|tracks, current_track, recording_cursor, recording_mode| {
+            // switch track mode (CV vs Gate)
+            if shift_key == Key::Shift && nav_key == Key::Forward {
+                rprintln!("Pressed Shift+Forward");
+                tracks[*current_track].toggle_mode();
+                inputs::spawn_after(systick_monotonic::ExtU64::millis(KEYBOARD_KEY_PRESS_DELAY_MS));
+                return;
+            }
+
+            // switch track
+            let step = cx.local.keyboard.match_step(note_key);
+            if fn_key == Key::Fn1 && step > -1 {
+                rprintln!("Pressed Fn1+{:?}", step);
+                *current_track = note_key as usize;
+                inputs::spawn_after(systick_monotonic::ExtU64::millis(KEYBOARD_KEY_PRESS_DELAY_MS));
+                return;
+            }
+
+            // randomize gates with probability based on the key pressed
+            if fn_key == Key::Fn2 && step >= 0 && step <= 8 {
+                rprintln!("Pressed Fn2+{}", step);
+                tracks[*current_track].randomize(step as f64 / 8.0);
+                inputs::spawn_after(systick_monotonic::ExtU64::millis(KEYBOARD_KEY_PRESS_DELAY_MS));
+                return;
+            }
+
+            // switch recording mode
+            if fn_key == Key::Fn1 && shift_key == Key::Shift {
+                if *recording_mode == RecordingMode::Note {
+                    *recording_mode = RecordingMode::Step
+                } else {
+                    *recording_mode = RecordingMode::Note
+                }
+                rprintln!("Switch recording mode {:?}", *recording_mode);
+                inputs::spawn_after(systick_monotonic::ExtU64::millis(KEYBOARD_KEY_PRESS_DELAY_MS));
+                return;
+            }
+
+            let note = cx.local.keyboard.match_note(note_key);
+            if *recording_mode == RecordingMode::Note && note != Note::Unknown {
+                rprintln!("Pressed note {:?}", note);
+                tracks[*current_track].set_note(*recording_cursor, note);
+                if *recording_cursor == tracks[*current_track].pattern.len() {
+                    *recording_cursor = 0;
+                } else {
+                    *recording_cursor += 1;
+                }
+                inputs::spawn_after(systick_monotonic::ExtU64::millis(KEYBOARD_KEY_PRESS_DELAY_MS));
+                return;
+            }
+
+            // toggle step
+            if step >= 0 && step <= 8 {
+                tracks[*current_track].toggle_step(step as usize);
+                inputs::spawn_after(systick_monotonic::ExtU64::millis(KEYBOARD_KEY_PRESS_DELAY_MS));
+                return;
+            }
+        });
+        inputs::spawn_after(systick_monotonic::ExtU64::millis(KEYBOARD_REFRESH_MS));
+    }
+
+    // #[task(shared = [tracks, led_driver,  current_track, recording_cursor, recording_mode])]
+    // fn led(cx: led::Context) {
+    //
+    // }
 
     extern "Rust" {
-        #[task(local = [adc1, keypad], shared = [leds, tracks, current_track])]
-        fn keyboard(cx: keyboard::Context);
-
-        #[task(local = [ws], shared = [leds])]
-        fn set_led(cx: set_led::Context);
-
-        #[task(local = [duration, trigger_length], shared = [leds, tracks, current_track, gate1])]
+        #[task(local = [duration, trigger_length], shared = [tracks, led_driver, current_track, recording_cursor, recording_mode])]
         fn tick(cx: tick::Context, instant: fugit::TimerInstantU64<100>);
 
-        #[task(shared = [leds, gate1])]
+        #[task(shared = [gate1])]
         fn reset_gate(cx: reset_gate::Context);
     }
 }

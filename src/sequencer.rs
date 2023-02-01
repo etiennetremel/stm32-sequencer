@@ -5,88 +5,84 @@ use rtt_target::rprintln;
 use smart_leds::RGB;
 use systick_monotonic::*;
 
-pub(crate) fn tick(mut cx: app::tick::Context, instant: fugit::TimerInstantU64<100>) {
-    let offset = 8;
+use crate::track::{Note, Track, Mode};
+use crate::constants::*;
+use crate::led::*;
+use crate::keyboard::Key;
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum RecordingMode {
+    Step,
+    Note,
+}
+
+pub(crate) fn tick(mut cx: app::tick::Context, instant: fugit::TimerInstantU64<100>) {
     (
-        cx.shared.leds,
+        cx.shared.led_driver,
         cx.shared.tracks,
         cx.shared.current_track,
-        cx.shared.gate1,
+        cx.shared.recording_cursor,
+        cx.shared.recording_mode,
     )
-        .lock(|leds, tracks, current_track, gate1| {
-            // clear all lights (clock and gate and button state)
-            for i in 0..17 {
-                leds[i as usize].b = 0x00;
-                leds[i as usize].r = 0x00;
-                leds[i as usize].g = 0x00;
+        .lock(|led_driver, tracks, current_track, recording_cursor, recording_mode| {
+            // move 1 step forward on each tracks
+            for i in 0..TRACKS_COUNT {
+                tracks[i].tick();
             }
 
-            let track = &mut tracks[*current_track];
-
-            // move forward
-            track.tick();
-
-            // button state
-            for i in 0..track.pattern.len() {
-                if track.pattern[i] == 255 {
-                    leds[offset + i].b = 0x10;
-                }
+            let mut track = tracks[*current_track];
+            if *recording_mode == RecordingMode::Note {
+                cv_recording(led_driver, track, *current_track, *recording_cursor);
+            } else {
+                gate_recording(led_driver, track, *current_track);
             }
-
-            // set gate
-            if track.pattern[track.cursor] == 255 {
-                let mut color = match *current_track {
-                    0 => RGB {
-                        b: 0x05,
-                        r: 0x00,
-                        g: 0x00,
-                    },
-                    1 => RGB {
-                        b: 0x05,
-                        r: 0x10,
-                        g: 0x00,
-                    },
-                    2 => RGB {
-                        b: 0x05,
-                        r: 0x00,
-                        g: 0x10,
-                    },
-                    3 => RGB {
-                        b: 0x10,
-                        r: 0x00,
-                        g: 0x10,
-                    },
-                    _ => RGB {
-                        b: 0x00,
-                        r: 0x00,
-                        g: 0x00,
-                    },
-                };
-                leds[offset + track.cursor] = color;
-            }
-
-            // set clock
-            leds[offset + track.cursor].g = 0x10;
-
-            // Gate example
-            // if tracks[0].pattern[track.cursor] == 255 {
-            //     gate1.set_high();
-            // } else {
-            //     gate1.set_low();
-            // }
+            rprintln!("TRACK1: {:?}", tracks[0]);
+            // rprintln!("LED: {:?}", led_driver.leds);
         });
 
-    app::set_led::spawn().ok();
     app::reset_gate::spawn_at(instant + *cx.local.trigger_length).unwrap();
 
     let next_instant = instant + *cx.local.duration;
-    rprintln!(
-        "half {:?}, next: {:?}",
-        instant + *cx.local.trigger_length,
-        next_instant
-    );
+    // rprintln!(
+    //     "half {:?}, next: {:?}",
+    //     instant + *cx.local.trigger_length,
+    //     next_instant
+    // );
     app::tick::spawn_at(next_instant, next_instant).unwrap();
+}
+
+fn cv_recording(led_driver: &mut LedDriver, track: Track, current_track: usize, recording_cursor: usize) {
+    led_driver.clear();
+
+    // button state
+    for step in 0..recording_cursor {
+        led_driver.set_note(step, track.pattern[current_track].note);
+    }
+
+    // leds[match_note_to_led(track.pattern[track.cursor].note)] = RGB {b: 0x10, r: 0x10, g: 0x10};
+
+    led_driver
+        .set_active_track(current_track)
+        .set_track_mode(track.mode)
+        .set_clock(track.cursor);
+}
+
+fn gate_recording(led_driver: &mut LedDriver, track: Track, current_track: usize) {
+    led_driver.clear();
+
+    // button state
+    for step in 0..track.pattern.len() {
+        if track.pattern[step].gate {
+            led_driver.set_gate_on(step);
+        }
+    }
+
+    // leds[match_note_to_led(track.pattern[track.cursor].note)] = RGB {b: 0x10, r: 0x10, g: 0x10};
+
+    led_driver
+        .set_active_track(current_track)
+        .set_track_mode(track.mode)
+        .set_clock(track.cursor);
 }
 
 pub(crate) fn reset_gate(mut cx: app::reset_gate::Context) {
