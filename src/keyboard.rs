@@ -1,18 +1,18 @@
-// use crate::app::keyboard;
-use embedded_hal::adc::OneShot;
-use keypad::embedded_hal::digital::v2::InputPin;
 use rtic::mutex_prelude::*;
 use rtt_target::rprintln;
 
-use crate::constants::*;
-use crate::track::{Note, Track};
-
 use core::convert::Infallible;
-use keypad::{keypad_new, keypad_struct, KeypadInput};
+use embedded_hal::adc::OneShot;
 use stm32f1xx_hal::gpio::{
     gpioa::{PA0, PA1, PA10, PA2, PA3, PA4, PA5, PA8, PA9},
     Input, OpenDrain, Output, Pin, PullUp, CRH, CRL,
 };
+
+use keypad::embedded_hal::digital::v2::InputPin;
+use keypad::{keypad_new, keypad_struct, KeypadInput};
+
+use crate::constants::*;
+use crate::track::{Note, Track};
 
 // initialise keyboard
 keypad_struct! {
@@ -117,7 +117,7 @@ impl Keyboard {
 
     // match key to note
     pub fn match_note(&self, key: CodeKey) -> Option<Note> {
-        match (key) {
+        match key {
             CodeKey::KEY0 => Some(Note::C),
             CodeKey::KEY1 => Some(Note::D),
             CodeKey::KEY2 => Some(Note::E),
@@ -136,7 +136,7 @@ impl Keyboard {
 
     // match key to step index
     pub fn match_step(&self, key: CodeKey) -> Option<usize> {
-        match (key) {
+        match key {
             CodeKey::KEY0 => Some(0),
             CodeKey::KEY1 => Some(1),
             CodeKey::KEY2 => Some(2),

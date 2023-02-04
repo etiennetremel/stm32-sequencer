@@ -1,8 +1,5 @@
-#![allow(unreachable_code)]
 #![allow(unused_imports)]
-#![allow(warnings)]
 #![deny(unsafe_code)]
-#![feature(exclusive_range_pattern)]
 #![no_main]
 #![no_std]
 
@@ -11,6 +8,7 @@ use panic_rtt_target as _;
 use rtic::app;
 use rtt_target::{rprintln, rtt_init_print};
 
+use core::marker::PhantomData;
 use embedded_hal::spi::{Mode, Phase, Polarity};
 use stm32f1xx_hal::{
     adc,
@@ -23,8 +21,6 @@ use stm32f1xx_hal::{
     prelude::*,
     spi::{NoMiso, NoSck, Spi, Spi1NoRemap, Spi2NoRemap},
 };
-
-use core::marker::PhantomData;
 
 use keypad::{keypad_new, keypad_struct, KeypadInput};
 use mcp49xx::{Command, Mcp49xx, MODE_0};
@@ -177,8 +173,8 @@ mod app {
         let systick = cx.core.SYST;
         let mut mono = Systick::new(systick, 72_000_000);
 
-        let mut current_track = 0;
-        let mut tracks = [track::Track::new(); TRACKS_COUNT];
+        let current_track = 0;
+        let tracks = [track::Track::new(); TRACKS_COUNT];
 
         // define step length
         let step_length_us = (60.0 / BPM) * 1000.0 * 1000.0;
@@ -195,6 +191,7 @@ mod app {
         let recording_cursor = 0;
         let recording_mode = RecordingMode::Step;
 
+        // setup keyboard using led matrix schema
         let keyboard = Keyboard::new(
             gpioa.pa0.into_pull_up_input(&mut gpioa.crl),
             gpioa.pa1.into_pull_up_input(&mut gpioa.crl),
@@ -209,8 +206,8 @@ mod app {
 
         // start processes
         tick::spawn_after(step_length, mono.now()).unwrap();
-        keyboard_ctrl::spawn_after(systick_monotonic::ExtU64::millis(KEYBOARD_REFRESH_MS));
-        led_ctrl::spawn_after(systick_monotonic::ExtU64::millis(LED_REFRESH_MS));
+        keyboard_ctrl::spawn_after(systick_monotonic::ExtU64::millis(KEYBOARD_REFRESH_MS)).unwrap();
+        led_ctrl::spawn_after(systick_monotonic::ExtU64::millis(LED_REFRESH_MS)).unwrap();
 
         (
             Shared {

@@ -47,7 +47,7 @@ impl LedDriver {
     }
 
     // set note color
-    pub fn set_note(&mut self, index: usize, note: Note) -> &mut Self {
+    pub fn set_note(&mut self, note: Note) -> &mut Self {
         if let Some(led) = match_note_to_led(note) {
             self.leds[led] = match_note_to_color(note).unwrap();
         }
@@ -105,7 +105,7 @@ impl LedDriver {
 
 // return RGB color based on a given note
 fn match_note_to_color(note: Note) -> Option<RGB<u8>> {
-    match (note) {
+    match note {
         Note::A => Some(LED_NOTE_COLOR_A),
         Note::B => Some(LED_NOTE_COLOR_B),
         Note::C => Some(LED_NOTE_COLOR_C),
@@ -123,7 +123,7 @@ fn match_note_to_color(note: Note) -> Option<RGB<u8>> {
 
 // return led position based on a step index
 fn match_step_to_led(index: usize) -> Option<usize> {
-    match (index) {
+    match index {
         0 => Some(8),
         1 => Some(9),
         2 => Some(10),
@@ -138,10 +138,10 @@ fn match_step_to_led(index: usize) -> Option<usize> {
 
 // return led position based on a given key
 fn match_key_to_led(key: Key) -> Option<usize> {
-    match (key) {
+    match key {
         Key::FunctionKey(FunctionKey::FN1) => Some(0),
-        Key::FunctionKey(FunctionKey::FN2) => Some(7),
-        Key::ModifierKey(ModifierKey::SHIFT) => Some(8),
+        Key::FunctionKey(FunctionKey::FN2) => Some(6),
+        Key::ModifierKey(ModifierKey::SHIFT) => Some(7),
         Key::NavKey(NavKey::BACK) => Some(16),
         Key::NavKey(NavKey::FORWARD) => Some(17),
         Key::CodeKey(CodeKey::KEY0) => Some(8),
@@ -162,7 +162,7 @@ fn match_key_to_led(key: Key) -> Option<usize> {
 
 // return led position based on a given note
 fn match_note_to_led(note: Note) -> Option<usize> {
-    match (note) {
+    match note {
         Note::C => Some(8),
         Note::D => Some(9),
         Note::E => Some(10),

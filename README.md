@@ -52,7 +52,7 @@ PA6   LED data in (WS2812)
 ###  Getting started
 
 ```bash
-cargo flash --chip STM32F103C8
+cargo embed --release
 ```
 
 ### Debugging

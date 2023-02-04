@@ -23,12 +23,14 @@ pub enum TrackMode {
     CV,
 }
 
+// Gate state
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Gate {
     ON,
     OFF,
 }
 
+// Note name
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Note {
     A,
@@ -112,12 +114,6 @@ impl Track {
         if self.cursor >= self.pattern.len() {
             self.reset();
         }
-        // rprintln!(
-        //     "{} [{:?}:{}]",
-        //     self.cursor,
-        //     self.pattern[self.cursor as usize],
-        //     self.pattern.len()
-        // );
         return self;
     }
 
@@ -129,7 +125,7 @@ impl Track {
     //     return;
     // }
 
-    pub fn randomize(&mut self, probability: f64) -> &mut Self {
+    pub fn randomize(&mut self, _probability: f64) -> &mut Self {
         // TODO: review seeding logic, executing seeding logic on every random
         // action is not really optimized
         let mut rng = SmallRng::seed_from_u64(self.seed);
@@ -158,18 +154,19 @@ impl Track {
         self.cursor = 0;
     }
 
-    fn play(&mut self) {
-        self.playing = true;
-    }
-
-    fn stop(&mut self) {
-        self.pause();
-        self.reset();
-    }
-
-    fn pause(&mut self) {
-        self.playing = false;
-    }
+    // TODO: handle play/stop per track
+    // fn play(&mut self) {
+    //     self.playing = true;
+    // }
+    //
+    // fn stop(&mut self) {
+    //     self.pause();
+    //     self.reset();
+    // }
+    //
+    // fn pause(&mut self) {
+    //     self.playing = false;
+    // }
 }
 
 impl Distribution<Gate> for Standard {
