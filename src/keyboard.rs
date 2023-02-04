@@ -1,19 +1,17 @@
 // use crate::app::keyboard;
+use embedded_hal::adc::OneShot;
 use keypad::embedded_hal::digital::v2::InputPin;
 use rtic::mutex_prelude::*;
 use rtt_target::rprintln;
-use embedded_hal::adc::OneShot;
 
 use crate::constants::*;
-use crate::track::{Track, Note};
+use crate::track::{Note, Track};
 
-use keypad::{keypad_new, keypad_struct, KeypadInput};
 use core::convert::Infallible;
+use keypad::{keypad_new, keypad_struct, KeypadInput};
 use stm32f1xx_hal::gpio::{
-    Pin,
-    CRH, CRL,
     gpioa::{PA0, PA1, PA10, PA2, PA3, PA4, PA5, PA8, PA9},
-    OpenDrain, Output, Input, PullUp,
+    Input, OpenDrain, Output, Pin, PullUp, CRH, CRL,
 };
 
 // initialise keyboard
@@ -103,7 +101,7 @@ impl Keyboard {
         c1: Pin<Output<OpenDrain>, CRH, 'A', 9>,
         c2: Pin<Output<OpenDrain>, CRH, 'A', 10>,
     ) -> Keyboard {
-        Keyboard{
+        Keyboard {
             key_event: KeyEvent {
                 code: None,
                 nav: None,
@@ -111,13 +109,9 @@ impl Keyboard {
                 function: None,
             },
             keypad: keypad_new!(Keypad {
-                rows: (
-                    r0, r1, r2, r3, r4, r5,
-                ),
-                columns: (
-                    c0, c1, c2,
-                ),
-            })
+                rows: (r0, r1, r2, r3, r4, r5,),
+                columns: (c0, c1, c2,),
+            }),
         }
     }
 
@@ -161,9 +155,9 @@ impl Keyboard {
 
     pub fn read(&mut self) -> &mut Self {
         self.key_event.code = None;
+        self.key_event.function = None;
         self.key_event.modifier = None;
         self.key_event.nav = None;
-        self.key_event.function = None;
 
         for (row_index, row) in self.keypad.decompose().iter().enumerate() {
             for (col_index, k) in row.iter().enumerate() {
@@ -171,66 +165,32 @@ impl Keyboard {
                     rprintln!("Pressed: ({}, {})", row_index, col_index);
 
                     match (row_index, col_index) {
-                        (0,0)=> {
-                            self.key_event.function = Some(FunctionKey::FN1)
-                        },
-                        (0,1)=> {
-                            self.key_event.modifier = Some(ModifierKey::SHIFT)
-                        },
-                        (0,2)=> {
-                            self.key_event.code = Some(CodeKey::KEY0)
-                        },
-                        (1,0)=> {
-                            self.key_event.code = Some(CodeKey::KEY8)
-                        },
-                        (1,1)=> {
-                            self.key_event.code = Some(CodeKey::KEY1)
-                        },
-                        (1,2)=> {
-                            self.key_event.code = Some(CodeKey::KEY2)
-                        },
-                        (2,0)=> {
-                            self.key_event.code = Some(CodeKey::KEY9)
-                        },
-                        (2,1)=> {
-                            self.key_event.code = Some(CodeKey::KEY3)
-                        },
-                        (2,2)=> {
-                            self.key_event.code = Some(CodeKey::KEY4)
-                        },
-                        (3,0)=> {
-                            self.key_event.code = Some(CodeKey::KEY10)
-                        },
-                        (3,1)=> {
-                            self.key_event.code = Some(CodeKey::KEY5)
-                        },
-                        (3,2)=> {
-                            self.key_event.code = Some(CodeKey::KEY6)
-                        },
-                        (4,0)=> {
-                            self.key_event.code = Some(CodeKey::KEY11)
-                        },
-                        (4,1)=> {
-                            self.key_event.code = Some(CodeKey::KEY12)
-                        },
-                        (4,2)=> {
-                            self.key_event.code = Some(CodeKey::KEY7)
-                        },
-                        (5,0)=> {
+                        (0, 0) => self.key_event.function = Some(FunctionKey::FN1),
+                        (0, 1) => self.key_event.modifier = Some(ModifierKey::SHIFT),
+                        (0, 2) => self.key_event.code = Some(CodeKey::KEY0),
+                        (1, 0) => self.key_event.code = Some(CodeKey::KEY8),
+                        (1, 1) => self.key_event.code = Some(CodeKey::KEY1),
+                        (1, 2) => self.key_event.code = Some(CodeKey::KEY2),
+                        (2, 0) => self.key_event.code = Some(CodeKey::KEY9),
+                        (2, 1) => self.key_event.code = Some(CodeKey::KEY3),
+                        (2, 2) => self.key_event.code = Some(CodeKey::KEY4),
+                        (3, 0) => self.key_event.code = Some(CodeKey::KEY10),
+                        (3, 1) => self.key_event.code = Some(CodeKey::KEY5),
+                        (3, 2) => self.key_event.code = Some(CodeKey::KEY6),
+                        (4, 0) => self.key_event.code = Some(CodeKey::KEY11),
+                        (4, 1) => self.key_event.code = Some(CodeKey::KEY12),
+                        (4, 2) => self.key_event.code = Some(CodeKey::KEY7),
+                        (5, 0) => {
                             // there is a bug there, for some reason when
-                            // pressing Fn1 and Forward key, Fn2 also appear
+                            // pressing Fn1 and Forward key, Fn2 also appear...
                             // so to prevent it to override, only set if
                             // FN1 hasn't been pressed already
                             if self.key_event.function == None {
                                 self.key_event.function = Some(FunctionKey::FN2)
                             }
-                        },
-                        (5,1)=> {
-                            self.key_event.nav = Some(NavKey::BACK)
-                        },
-                        (5,2)=> {
-                            self.key_event.nav = Some(NavKey::FORWARD)
-                        },
+                        }
+                        (5, 1) => self.key_event.nav = Some(NavKey::BACK),
+                        (5, 2) => self.key_event.nav = Some(NavKey::FORWARD),
                         (_, _) => todo!(),
                     }
                 }

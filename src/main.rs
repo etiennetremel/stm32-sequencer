@@ -11,37 +11,35 @@ use panic_rtt_target as _;
 use rtic::app;
 use rtt_target::{rprintln, rtt_init_print};
 
-use stm32f1xx_hal::gpio::{
-    gpioa::{PA0, PA1, PA10, PA2, PA3, PA4, PA5, PA6, PA7, PA8, PA9},
-    gpiob::{PB0, PB12, PB13, PB14, PB15},
-    Alternate, Analog, Floating, Input, OpenDrain, Output, Pin, PullUp, PushPull, CRH, CRL,
-};
-use keypad::{keypad_new, keypad_struct, KeypadInput};
+use embedded_hal::spi::{Mode, Phase, Polarity};
 use stm32f1xx_hal::{
-    prelude::*,
     adc,
+    gpio::{
+        gpioa::{PA0, PA1, PA10, PA2, PA3, PA4, PA5, PA6, PA7, PA8, PA9},
+        gpiob::{PB0, PB12, PB13, PB14, PB15},
+        Alternate, Analog, Floating, Input, OpenDrain, Output, Pin, PullUp, PushPull, CRH, CRL,
+    },
     pac,
+    prelude::*,
     spi::{NoMiso, NoSck, Spi, Spi1NoRemap, Spi2NoRemap},
 };
 
 use core::marker::PhantomData;
 
+use keypad::{keypad_new, keypad_struct, KeypadInput};
 use mcp49xx::{Command, Mcp49xx, MODE_0};
+use ws2812_spi as ws2812;
 
-use embedded_hal::spi::{Mode, Phase, Polarity};
-
-pub const MODE: Mode = Mode {
+pub const SPI_MODE: Mode = Mode {
     phase: Phase::CaptureOnSecondTransition,
     polarity: Polarity::IdleHigh,
 };
 
-use ws2812_spi as ws2812;
-
 mod constants;
 mod keyboard;
+mod led;
 mod sequencer;
 mod track;
-mod led;
 
 #[rtic::app(device = stm32f1xx_hal::pac, peripherals = true, dispatchers = [SPI1])]
 mod app {
@@ -50,12 +48,12 @@ mod app {
     use mcp49xx::marker::{Buffered, Resolution12Bit, SingleChannel};
     use systick_monotonic::*;
 
-    use track::*;
     use constants::*;
+    use track::*;
 
     use keyboard::{Keyboard, Keypad};
-    use sequencer::*;
     use led::LedDriver;
+    use sequencer::*;
 
     #[shared]
     struct Shared {
@@ -147,7 +145,7 @@ mod app {
             cx.device.SPI1,
             pins_led,
             &mut afio.mapr,
-            MODE,
+            SPI_MODE,
             3.MHz(),
             clocks,
         );

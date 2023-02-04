@@ -1,15 +1,13 @@
-use crate::ws2812::Ws2812;
-use ws2812_spi as ws2812;
-use stm32f1xx_hal::{
-    spi::{NoMiso, NoSck, Spi, Spi1NoRemap},
-    gpio::{
-        Alternate, Pin, PullUp, PushPull, CRL,
-    }
-};
 use crate::constants::*;
+use crate::keyboard::{CodeKey, FunctionKey, Key, ModifierKey, NavKey};
+use crate::track::{Note, TrackMode};
+use crate::ws2812::Ws2812;
 use smart_leds::{SmartLedsWrite, RGB};
-use crate::keyboard::{Key, ModifierKey, FunctionKey, CodeKey, NavKey};
-use crate::track::{TrackMode, Note};
+use stm32f1xx_hal::{
+    gpio::{Alternate, Pin, PullUp, PushPull, CRL},
+    spi::{NoMiso, NoSck, Spi, Spi1NoRemap},
+};
+use ws2812_spi as ws2812;
 
 pub struct LedDriver {
     ws: Ws2812<
@@ -24,13 +22,15 @@ pub struct LedDriver {
 }
 
 impl LedDriver {
-    pub fn new(spi: Spi<
+    pub fn new(
+        spi: Spi<
             stm32f1xx_hal::pac::SPI1,
             Spi1NoRemap,
             (NoSck, NoMiso, Pin<Alternate<PushPull>, CRL, 'A', 7>),
             u8,
-        >) -> LedDriver {
-        let mut led_driver = LedDriver{
+        >,
+    ) -> LedDriver {
+        let mut led_driver = LedDriver {
             leds: [RGB::default(); LED_COUNT],
             ws: Ws2812::new(spi),
         };
@@ -137,11 +137,11 @@ fn match_step_to_led(index: usize) -> Option<usize> {
 }
 
 // return led position based on a given key
-fn match_key_to_led(key: Key)-> Option<usize> {
+fn match_key_to_led(key: Key) -> Option<usize> {
     match (key) {
         Key::FunctionKey(FunctionKey::FN1) => Some(0),
         Key::FunctionKey(FunctionKey::FN2) => Some(7),
-        Key::ModifierKey(ModifierKey::SHIFT)=> Some(8),
+        Key::ModifierKey(ModifierKey::SHIFT) => Some(8),
         Key::NavKey(NavKey::BACK) => Some(16),
         Key::NavKey(NavKey::FORWARD) => Some(17),
         Key::CodeKey(CodeKey::KEY0) => Some(8),
@@ -161,19 +161,19 @@ fn match_key_to_led(key: Key)-> Option<usize> {
 }
 
 // return led position based on a given note
-fn match_note_to_led(note: Note)-> Option<usize> {
+fn match_note_to_led(note: Note) -> Option<usize> {
     match (note) {
-        Note::C=> Some(8),
-        Note::D=> Some(9),
-        Note::E=> Some(10),
-        Note::F=> Some(11),
-        Note::G=> Some(12),
-        Note::A=> Some(13),
-        Note::B=> Some(14),
-        Note::Db=> Some(1),
-        Note::Eb=> Some(2),
-        Note::Gb=> Some(3),
-        Note::Ab=> Some(4),
-        Note::Bb=> Some(5),
+        Note::C => Some(8),
+        Note::D => Some(9),
+        Note::E => Some(10),
+        Note::F => Some(11),
+        Note::G => Some(12),
+        Note::A => Some(13),
+        Note::B => Some(14),
+        Note::Db => Some(1),
+        Note::Eb => Some(2),
+        Note::Gb => Some(3),
+        Note::Ab => Some(4),
+        Note::Bb => Some(5),
     }
 }

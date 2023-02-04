@@ -1,6 +1,6 @@
-use rand::RngCore;
 use rand::distributions::{Distribution, Standard};
 use rand::rngs::SmallRng;
+use rand::RngCore;
 use rand::{Rng, SeedableRng};
 use rtt_target::rprintln;
 
@@ -55,15 +55,20 @@ pub struct Step {
 }
 
 impl Track {
-    pub fn new()->Track {
-        return Track{
+    pub fn new() -> Track {
+        return Track {
             cursor: 0,
             divide: 0,
             seed: 0,
             playing: true,
             mode: TrackMode::GATE,
-            pattern: [Step{gate: Gate::OFF, velocity: 255, octave: 0, note: Note::C}; STEPS_COUNT],
-        }
+            pattern: [Step {
+                gate: Gate::OFF,
+                velocity: 255,
+                octave: 0,
+                note: Note::C,
+            }; STEPS_COUNT],
+        };
     }
 
     pub fn set_mode(&mut self, mode: TrackMode) -> &mut Self {
