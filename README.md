@@ -5,6 +5,8 @@ Music sequencer based on stm32 blue pill
 
 ## Overview
 
+![STM32F103C8 music sequencer](./build/stm32-sequencer.png)
+
 ## Pinout
 
 Currently only 2 DACs in use:
@@ -37,7 +39,7 @@ PA6   LED data in (WS2812)
 | Shift+Back    | Previous track
 | Fn1+Forward   | Toggle current track mode between CV and Gate
 | Fn1+Step      | Select track number
-| Fn2+Step      | Randomize CV or Gate with probability based on the Step
+| Fn2+Step      | Randomize CV or Gate with probability based on the selected step
 | Forward       | Next octave
 | Back          | Previous octave
 
