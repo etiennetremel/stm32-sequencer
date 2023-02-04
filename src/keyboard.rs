@@ -36,60 +36,59 @@ keypad_struct! {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Key {
-    K0,
-    K1,
-    K10,
-    K11,
-    K12,
-    K2,
-    K3,
-    K4,
-    K5,
-    K6,
-    K7,
-    K8,
-    K9,
-    Fn1,
-    Fn2,
-    Shift,
-    Back,
-    Forward,
-    Unknown,
+pub enum CodeKey {
+    KEY0,
+    KEY1,
+    KEY10,
+    KEY11,
+    KEY12,
+    KEY2,
+    KEY3,
+    KEY4,
+    KEY5,
+    KEY6,
+    KEY7,
+    KEY8,
+    KEY9,
 }
 
-// #[derive(Copy, Clone, Debug, PartialEq)]
-// pub struct KeyDown {
-//     k0: bool,
-//     k1: bool,
-//     k10: bool,
-//     k11: bool,
-//     k12: bool,
-//     k2: bool,
-//     k3: bool,
-//     k4: bool,
-//     k5: bool,
-//     k6: bool,
-//     k7: bool,
-//     k8: bool,
-//     k9: bool,
-//     fn1: bool,
-//     fn2: bool,
-//     shift: bool,
-//     back: bool,
-//     forward: bool,
-// }
-
 pub struct Keyboard {
-    // pub key_lock: bool,
-    pub keypad: Keypad,
-    // key_down: KeyDown,
+    keypad: Keypad,
+    pub key_event: KeyEvent,
 }
 use stm32f1xx_hal::gpio::gpioa::Parts;
 
-pub struct Key {
-    pub key: Key,
-    pub state: bool,
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum ModifierKey {
+    SHIFT,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum FunctionKey {
+    FN1,
+    FN2,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum NavKey {
+    BACK,
+    FORWARD,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Key {
+    NavKey(NavKey),
+    CodeKey(CodeKey),
+    FunctionKey(FunctionKey),
+    ModifierKey(ModifierKey),
+}
+
+#[derive(Debug)]
+pub struct KeyEvent {
+    pub code: Option<CodeKey>,
+    pub nav: Option<NavKey>,
+    pub modifier: Option<ModifierKey>,
+    pub function: Option<FunctionKey>,
 }
 
 impl Keyboard {
@@ -105,7 +104,12 @@ impl Keyboard {
         c2: Pin<Output<OpenDrain>, CRH, 'A', 10>,
     ) -> Keyboard {
         Keyboard{
-            // key_down: [Key::Unknown; KEYBOARD_KEY_COUNT],
+            key_event: KeyEvent {
+                code: None,
+                nav: None,
+                modifier: None,
+                function: None,
+            },
             keypad: keypad_new!(Keypad {
                 rows: (
                     r0, r1, r2, r3, r4, r5,
@@ -117,151 +121,122 @@ impl Keyboard {
         }
     }
 
-    fn is_key_down(&self, key: Key) -> bool {
-        return self.key_down.contains(&key);
-    }
-
-    // match row/column index to key
-    fn match_key(&self, row_index: usize, col_index: usize) -> Key {
-        match (row_index, col_index) {
-            (0,0)=> Key::Fn1,
-            (0,1)=> Key::Shift,
-            (0,2)=> Key::K0,
-            (1,0)=> Key::K8,
-            (1,1)=> Key::K1,
-            (1,2)=> Key::K2,
-            (2,0)=> Key::K9,
-            (2,1)=> Key::K3,
-            (2,2)=> Key::K4,
-            (3,0)=> Key::K10,
-            (3,1)=> Key::K5,
-            (3,2)=> Key::K6,
-            (4,0)=> Key::K11,
-            (4,1)=> Key::K12,
-            (4,2)=> Key::K7,
-            (5,0)=> Key::Fn2,
-            (5,1)=> Key::Back,
-            (5,2)=> Key::Forward,
-            _ => Key::Unknown
-        }
-    }
-
     // match key to note
-    pub fn match_note(&self, key: Key) -> Note {
+    pub fn match_note(&self, key: CodeKey) -> Option<Note> {
         match (key) {
-            Key::K0 => Note::C,
-            Key::K1 => Note::D,
-            Key::K2 => Note::E,
-            Key::K3 => Note::F,
-            Key::K4 => Note::G,
-            Key::K5 => Note::A,
-            Key::K6 => Note::B,
-            Key::K7 => Note::C,
-            Key::K8 => Note::Db,
-            Key::K9 => Note::Eb,
-            Key::K10 => Note::Gb,
-            Key::K11 => Note::Ab,
-            Key::K12 => Note::Bb,
-            _ => Note::Unknown,
+            CodeKey::KEY0 => Some(Note::C),
+            CodeKey::KEY1 => Some(Note::D),
+            CodeKey::KEY2 => Some(Note::E),
+            CodeKey::KEY3 => Some(Note::F),
+            CodeKey::KEY4 => Some(Note::G),
+            CodeKey::KEY5 => Some(Note::A),
+            CodeKey::KEY6 => Some(Note::B),
+            CodeKey::KEY7 => Some(Note::C),
+            CodeKey::KEY8 => Some(Note::Db),
+            CodeKey::KEY9 => Some(Note::Eb),
+            CodeKey::KEY10 => Some(Note::Gb),
+            CodeKey::KEY11 => Some(Note::Ab),
+            CodeKey::KEY12 => Some(Note::Bb),
         }
     }
 
     // match key to step index
-    pub fn match_step(&self, key: Key) -> i32 {
+    pub fn match_step(&self, key: CodeKey) -> Option<usize> {
         match (key) {
-            Key::K0 => 0,
-            Key::K1 => 1,
-            Key::K2 => 2,
-            Key::K3 => 3,
-            Key::K4 => 4,
-            Key::K5 => 5,
-            Key::K6 => 6,
-            Key::K7 => 7,
-            Key::K8 => 8,
-            Key::K9 => 9,
-            Key::K10 => 10,
-            Key::K11 => 11,
-            Key::K12 => 12,
-            _ => -1,
+            CodeKey::KEY0 => Some(0),
+            CodeKey::KEY1 => Some(1),
+            CodeKey::KEY2 => Some(2),
+            CodeKey::KEY3 => Some(3),
+            CodeKey::KEY4 => Some(4),
+            CodeKey::KEY5 => Some(5),
+            CodeKey::KEY6 => Some(6),
+            CodeKey::KEY7 => Some(7),
+            CodeKey::KEY8 => Some(8),
+            CodeKey::KEY9 => Some(9),
+            CodeKey::KEY10 => Some(10),
+            CodeKey::KEY11 => Some(11),
+            CodeKey::KEY12 => Some(12),
         }
     }
 
-    pub fn read(&self) -> (Key, Key, Key, Key) {
-        let mut fn_key: Key = Key::Unknown;
-        let mut shift_key: Key = Key::Unknown;
-        let mut nav_key: Key = Key::Unknown;
-        let mut note_key: Key = Key::Unknown;
+    pub fn read(&mut self) -> &mut Self {
+        self.key_event.code = None;
+        self.key_event.modifier = None;
+        self.key_event.nav = None;
+        self.key_event.function = None;
 
         for (row_index, row) in self.keypad.decompose().iter().enumerate() {
             for (col_index, k) in row.iter().enumerate() {
                 if k.is_low().unwrap() {
-                    rprintln!("========================================");
                     rprintln!("Pressed: ({}, {})", row_index, col_index);
-                    let mut key = self.match_key(row_index, col_index);
 
-                    match key {
-                        Key::Fn1 => {
-                            fn_key= Key::Fn1;
+                    match (row_index, col_index) {
+                        (0,0)=> {
+                            self.key_event.function = Some(FunctionKey::FN1)
                         },
-                        Key::Shift => {
-                            shift_key = Key::Shift;
+                        (0,1)=> {
+                            self.key_event.modifier = Some(ModifierKey::SHIFT)
                         },
-                        Key::K0 => {
-                            note_key = Key::K0;
+                        (0,2)=> {
+                            self.key_event.code = Some(CodeKey::KEY0)
                         },
-                        Key::K1 => {
-                            note_key = Key::K1;
+                        (1,0)=> {
+                            self.key_event.code = Some(CodeKey::KEY8)
                         },
-                        Key::K2 => {
-                            note_key = Key::K2;
+                        (1,1)=> {
+                            self.key_event.code = Some(CodeKey::KEY1)
                         },
-                        Key::K3 => {
-                            note_key = Key::K3;
+                        (1,2)=> {
+                            self.key_event.code = Some(CodeKey::KEY2)
                         },
-                        Key::K4 => {
-                            note_key = Key::K4;
+                        (2,0)=> {
+                            self.key_event.code = Some(CodeKey::KEY9)
                         },
-                        Key::K5 => {
-                            note_key = Key::K5;
+                        (2,1)=> {
+                            self.key_event.code = Some(CodeKey::KEY3)
                         },
-                        Key::K6 => {
-                            note_key = Key::K6;
+                        (2,2)=> {
+                            self.key_event.code = Some(CodeKey::KEY4)
                         },
-                        Key::K7 => {
-                            note_key = Key::K7;
+                        (3,0)=> {
+                            self.key_event.code = Some(CodeKey::KEY10)
                         },
-                        Key::K8 => {
-                            note_key = Key::K8;
+                        (3,1)=> {
+                            self.key_event.code = Some(CodeKey::KEY5)
                         },
-                        Key::K9 => {
-                            note_key = Key::K9;
+                        (3,2)=> {
+                            self.key_event.code = Some(CodeKey::KEY6)
                         },
-                        Key::K10 => {
-                            note_key = Key::K10;
+                        (4,0)=> {
+                            self.key_event.code = Some(CodeKey::KEY11)
                         },
-                        Key::K11 => {
-                            key= Key::K11;
+                        (4,1)=> {
+                            self.key_event.code = Some(CodeKey::KEY12)
                         },
-                        Key::K12 => {
-                            key= Key::K12;
+                        (4,2)=> {
+                            self.key_event.code = Some(CodeKey::KEY7)
                         },
-                        Key::Fn2 => {
-                            fn_key= Key::Fn2;
+                        (5,0)=> {
+                            // there is a bug there, for some reason when
+                            // pressing Fn1 and Forward key, Fn2 also appear
+                            // so to prevent it to override, only set if
+                            // FN1 hasn't been pressed already
+                            if self.key_event.function == None {
+                                self.key_event.function = Some(FunctionKey::FN2)
+                            }
                         },
-                        Key::Back => {
-                            nav_key= Key::Back;
+                        (5,1)=> {
+                            self.key_event.nav = Some(NavKey::BACK)
                         },
-                        Key::Forward => {
-                            nav_key= Key::Forward;
+                        (5,2)=> {
+                            self.key_event.nav = Some(NavKey::FORWARD)
                         },
-                        _ => {},
-                    };
-                    rprintln!("KEY: {:?}", key);
-                    rprintln!("========================================");
+                        (_, _) => todo!(),
+                    }
                 }
             }
         }
 
-        return (fn_key, shift_key, nav_key, note_key);
+        return self;
     }
 }

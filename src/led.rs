@@ -8,11 +8,11 @@ use stm32f1xx_hal::{
 };
 use crate::constants::*;
 use smart_leds::{SmartLedsWrite, RGB};
-use crate::keyboard::Key;
-use crate::track::{Mode, Note};
+use crate::keyboard::{Key, ModifierKey, FunctionKey, CodeKey, NavKey};
+use crate::track::{TrackMode, Note};
 
 pub struct LedDriver {
-    pub ws: Ws2812<
+    ws: Ws2812<
         Spi<
             stm32f1xx_hal::pac::SPI1,
             Spi1NoRemap,
@@ -38,35 +38,54 @@ impl LedDriver {
         return led_driver;
     }
 
-    pub fn set_note(&mut self, index: usize, note: Note) -> &mut Self {
-        self.leds[match_step_to_led(index)] = match_note_to_color(note);
+    // set current recording cursor position
+    pub fn set_recording_position(&mut self, index: usize, note: Note) -> &mut Self {
+        if let Some(led) = match_step_to_led(index) {
+            self.leds[led] = match_note_to_color(note).unwrap();
+        }
         return self;
     }
 
-    // set active gate
+    // set note color
+    pub fn set_note(&mut self, index: usize, note: Note) -> &mut Self {
+        if let Some(led) = match_note_to_led(note) {
+            self.leds[led] = match_note_to_color(note).unwrap();
+        }
+        return self;
+    }
+
+    // set active gate color
     pub fn set_gate_on(&mut self, index: usize) -> &mut Self {
-        self.leds[match_step_to_led(index)] = LED_GATE_COLOR;
+        if let Some(led) = match_step_to_led(index) {
+            self.leds[led] = LED_GATE_COLOR;
+        }
         return self;
     }
 
     // set active track color on Fn1 key
     pub fn set_active_track(&mut self, index: usize) -> &mut Self {
-        self.leds[match_key_to_led(Key::Fn1)] = LED_ACTIVE_TRACK_COLOR[index];
+        if let Some(led) = match_key_to_led(Key::FunctionKey(FunctionKey::FN1)) {
+            self.leds[led] = LED_ACTIVE_TRACK_COLOR[index];
+        }
         return self;
     }
 
-    // set clock
+    // set current clock position
     pub fn set_clock(&mut self, index: usize) -> &mut Self {
-        self.leds[match_step_to_led(index)] = LED_CLOCK_COLOR;
+        if let Some(led) = match_step_to_led(index) {
+            self.leds[led] = LED_CLOCK_COLOR;
+        }
         return self;
     }
 
-    // set active track move on Shift key
-    pub fn set_track_mode(&mut self, track_mode: Mode) -> &mut Self {
-        if track_mode == Mode::CV {
-            self.leds[match_key_to_led(Key::Shift)] = LED_TRACK_CV_MODE_COLOR;
-        } else {
-            self.leds[match_key_to_led(Key::Shift)] = LED_TRACK_GATE_MODE_COLOR;
+    // set active track move under Shift key
+    pub fn set_track_mode(&mut self, track_mode: TrackMode) -> &mut Self {
+        if let Some(led) = match_key_to_led(Key::ModifierKey(ModifierKey::SHIFT)) {
+            if track_mode == TrackMode::CV {
+                self.leds[led] = LED_TRACK_CV_MODE_COLOR;
+            } else {
+                self.leds[led] = LED_TRACK_GATE_MODE_COLOR;
+            }
         }
         return self;
     }
@@ -74,7 +93,7 @@ impl LedDriver {
     // switch off all lights (clock and gate and button state)
     pub fn clear(&mut self) -> &mut Self {
         for i in 0..LED_COUNT {
-            self.leds[i as usize] = LED_OFF_COLOR;
+            self.leds[i] = LED_OFF_COLOR;
         }
         return self;
     }
@@ -84,76 +103,77 @@ impl LedDriver {
     }
 }
 
-pub fn match_note_to_color(note: Note) -> RGB<u8> {
+// return RGB color based on a given note
+fn match_note_to_color(note: Note) -> Option<RGB<u8>> {
     match (note) {
-        Note::A => LED_NOTE_COLOR_A,
-        Note::B => LED_NOTE_COLOR_B,
-        Note::C => LED_NOTE_COLOR_C,
-        Note::D => LED_NOTE_COLOR_D,
-        Note::E => LED_NOTE_COLOR_E,
-        Note::F => LED_NOTE_COLOR_F,
-        Note::G => LED_NOTE_COLOR_G,
-        Note::Ab => LED_NOTE_COLOR_AB,
-        Note::Bb => LED_NOTE_COLOR_BB,
-        Note::Db => LED_NOTE_COLOR_DB,
-        Note::Eb => LED_NOTE_COLOR_EB,
-        Note::Gb => LED_NOTE_COLOR_GB,
-        _ => todo!(),
+        Note::A => Some(LED_NOTE_COLOR_A),
+        Note::B => Some(LED_NOTE_COLOR_B),
+        Note::C => Some(LED_NOTE_COLOR_C),
+        Note::D => Some(LED_NOTE_COLOR_D),
+        Note::E => Some(LED_NOTE_COLOR_E),
+        Note::F => Some(LED_NOTE_COLOR_F),
+        Note::G => Some(LED_NOTE_COLOR_G),
+        Note::Ab => Some(LED_NOTE_COLOR_AB),
+        Note::Bb => Some(LED_NOTE_COLOR_BB),
+        Note::Db => Some(LED_NOTE_COLOR_DB),
+        Note::Eb => Some(LED_NOTE_COLOR_EB),
+        Note::Gb => Some(LED_NOTE_COLOR_GB),
     }
 }
 
-pub fn match_step_to_led(index: usize) -> usize {
+// return led position based on a step index
+fn match_step_to_led(index: usize) -> Option<usize> {
     match (index) {
-        0 => 8,
-        1 => 9,
-        2 => 10,
-        3 => 11,
-        4 => 12,
-        5 => 13,
-        6 => 14,
-        7 => 15,
+        0 => Some(8),
+        1 => Some(9),
+        2 => Some(10),
+        3 => Some(11),
+        4 => Some(12),
+        5 => Some(13),
+        6 => Some(14),
+        7 => Some(15),
         _ => todo!(),
     }
 }
 
-pub fn match_key_to_led(key: Key)-> usize {
+// return led position based on a given key
+fn match_key_to_led(key: Key)-> Option<usize> {
     match (key) {
-        Key::Fn1=> 0,
-        Key::Fn2=> 7,
-        Key::Shift=> 8,
-        Key::Back=> 16,
-        Key::Forward=> 17,
-        Key::K0=> 8,
-        Key::K1=> 9,
-        Key::K2=> 10,
-        Key::K3=> 11,
-        Key::K4=> 12,
-        Key::K5=> 13,
-        Key::K6=> 14,
-        Key::K7=> 15,
-        Key::K8=> 1,
-        Key::K9=> 2,
-        Key::K10=> 3,
-        Key::K11=> 4,
-        Key::K12=> 5,
-        Key::Unknown=> 0,
+        Key::FunctionKey(FunctionKey::FN1) => Some(0),
+        Key::FunctionKey(FunctionKey::FN2) => Some(7),
+        Key::ModifierKey(ModifierKey::SHIFT)=> Some(8),
+        Key::NavKey(NavKey::BACK) => Some(16),
+        Key::NavKey(NavKey::FORWARD) => Some(17),
+        Key::CodeKey(CodeKey::KEY0) => Some(8),
+        Key::CodeKey(CodeKey::KEY1) => Some(9),
+        Key::CodeKey(CodeKey::KEY2) => Some(10),
+        Key::CodeKey(CodeKey::KEY3) => Some(11),
+        Key::CodeKey(CodeKey::KEY4) => Some(12),
+        Key::CodeKey(CodeKey::KEY5) => Some(13),
+        Key::CodeKey(CodeKey::KEY6) => Some(14),
+        Key::CodeKey(CodeKey::KEY7) => Some(15),
+        Key::CodeKey(CodeKey::KEY8) => Some(1),
+        Key::CodeKey(CodeKey::KEY9) => Some(2),
+        Key::CodeKey(CodeKey::KEY10) => Some(3),
+        Key::CodeKey(CodeKey::KEY11) => Some(4),
+        Key::CodeKey(CodeKey::KEY12) => Some(5),
     }
 }
 
-pub fn match_note_to_led(note: Note)-> usize {
+// return led position based on a given note
+fn match_note_to_led(note: Note)-> Option<usize> {
     match (note) {
-        Note::C=> 8,
-        Note::D=> 9,
-        Note::E=> 10,
-        Note::F=> 11,
-        Note::G=> 12,
-        Note::A=> 13,
-        Note::B=> 14,
-        Note::Db=> 1,
-        Note::Eb=> 2,
-        Note::Gb=> 3,
-        Note::Ab=> 4,
-        Note::Bb=> 5,
-        Note::Unknown=> 0,
+        Note::C=> Some(8),
+        Note::D=> Some(9),
+        Note::E=> Some(10),
+        Note::F=> Some(11),
+        Note::G=> Some(12),
+        Note::A=> Some(13),
+        Note::B=> Some(14),
+        Note::Db=> Some(1),
+        Note::Eb=> Some(2),
+        Note::Gb=> Some(3),
+        Note::Ab=> Some(4),
+        Note::Bb=> Some(5),
     }
 }

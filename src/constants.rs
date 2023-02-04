@@ -4,17 +4,23 @@ use smart_leds::RGB;
 pub const STEPS_COUNT: usize = 8;
 pub const TRACKS_COUNT: usize = 8;
 pub const BPM: f64 = 120.0;
+pub const GATE_LENGTH: f64 = 0.5;
 
 // keyboard
 pub const KEYBOARD_KEY_COUNT: usize = 18;
 pub const KEYBOARD_KEY_PRESS_DELAY_MS: u64 = 250;
-pub const KEYBOARD_REFRESH_MS: u64 = 100;
+pub const KEYBOARD_REFRESH_MS: u64 = 50;
+
+// cv out
+pub const CV_REFRESH_MS: u64 = 100;
 
 // leds
 pub const LED_COUNT: usize = 18;
+pub const LED_REFRESH_MS: u64 = 100;
 
 pub const LED_GATE_COLOR: RGB<u8> = RGB { r: 0x00, g: 0x00, b: 0x10 };
 pub const LED_OFF_COLOR: RGB<u8> = RGB{ r: 0x00, g: 0x00, b: 0x00 };
+// pub const LED_ACTIVE_NOTE_COLOR: RGB<u8> = RGB {b: 0x05, r: 0x10, g: 0x08};
 pub const LED_ACTIVE_TRACK_COLOR: [RGB<u8>; TRACKS_COUNT] = [
     RGB { b: 0x05, r: 0x00, g: 0x00 },
     RGB { b: 0x05, r: 0x05, g: 0x00 },
