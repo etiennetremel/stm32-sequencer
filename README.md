@@ -9,7 +9,10 @@ Music sequencer based on stm32 blue pill
 
 Keyboard is a custom PCB mounted with Cherry MX keys. It is based on the
 following schematic:
+
 ![Keyboard sequencer prototype](./build/keyboard-schema.png)
+
+![Keyboard PCB design](./build/msk18-prototype-v1-pcb.png)
 
 ## Pinout
 
