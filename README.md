@@ -7,6 +7,10 @@ Music sequencer based on stm32 blue pill
 
 ![STM32F103C8 music sequencer](./build/stm32-sequencer.png)
 
+Keyboard is a custom PCB mounted with Cherry MX keys. It is based on the
+following schematic:
+![Keyboard sequencer prototype](./build/keyboard-schema.png)
+
 ## Pinout
 
 Currently only 2 DACs in use:
