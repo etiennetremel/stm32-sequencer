@@ -21,6 +21,12 @@ pub struct LedDriver {
     pub leds: [RGB<u8>; LED_COUNT],
 }
 
+// impl Default for LedDriver {
+//     fn default() -> Self {
+//         Self::new()
+//     }
+// }
+
 impl LedDriver {
     pub fn new(
         spi: Spi<
@@ -35,7 +41,7 @@ impl LedDriver {
             ws: Ws2812::new(spi),
         };
         led_driver.clear().write();
-        return led_driver;
+        led_driver
     }
 
     // set current recording cursor position
@@ -43,7 +49,7 @@ impl LedDriver {
         if let Some(led) = match_step_to_led(index) {
             self.leds[led] = match_note_to_color(note).unwrap();
         }
-        return self;
+        self
     }
 
     // set note color
@@ -51,7 +57,7 @@ impl LedDriver {
         if let Some(led) = match_note_to_led(note) {
             self.leds[led] = match_note_to_color(note).unwrap();
         }
-        return self;
+        self
     }
 
     // set active gate color
@@ -59,7 +65,15 @@ impl LedDriver {
         if let Some(led) = match_step_to_led(index) {
             self.leds[led] = LED_GATE_COLOR;
         }
-        return self;
+        self
+    }
+
+    // set recording cursor
+    pub fn set_recording_cursor(&mut self, index: usize) -> &mut Self {
+        if let Some(led) = match_step_to_led(index) {
+            self.leds[led] = LED_RECORDING_CURSOR;
+        }
+        self
     }
 
     // set active track color on Fn1 key
@@ -67,7 +81,7 @@ impl LedDriver {
         if let Some(led) = match_key_to_led(Key::FunctionKey(FunctionKey::FN1)) {
             self.leds[led] = LED_ACTIVE_TRACK_COLOR[index];
         }
-        return self;
+        self
     }
 
     // set current clock position
@@ -75,7 +89,14 @@ impl LedDriver {
         if let Some(led) = match_step_to_led(index) {
             self.leds[led] = LED_CLOCK_COLOR;
         }
-        return self;
+        self
+    }
+
+    pub fn set_active_note(&mut self, index: usize, note: Note) -> &mut Self {
+        if let Some(led) = match_step_to_led(index) {
+            self.leds[led] = match_note_to_color(note).unwrap();
+        }
+        self
     }
 
     // set active track move under Shift key
@@ -87,7 +108,7 @@ impl LedDriver {
                 self.leds[led] = LED_TRACK_GATE_MODE_COLOR;
             }
         }
-        return self;
+        self
     }
 
     // switch off all lights (clock and gate and button state)
@@ -95,7 +116,7 @@ impl LedDriver {
         for i in 0..LED_COUNT {
             self.leds[i] = LED_OFF_COLOR;
         }
-        return self;
+        self
     }
 
     pub fn write(&mut self) {
@@ -132,7 +153,7 @@ fn match_step_to_led(index: usize) -> Option<usize> {
         5 => Some(13),
         6 => Some(14),
         7 => Some(15),
-        _ => todo!(),
+        _ => None,
     }
 }
 

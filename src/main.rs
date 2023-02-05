@@ -87,8 +87,6 @@ mod app {
             Buffered,
         >,
         led_driver: LedDriver,
-        recording_cursor: usize, // when recording in CV mode, store position of currently recorded step
-        recording_mode: RecordingMode,
         spi_dac: Spi<
             SPI2,
             Spi2NoRemap,
@@ -188,8 +186,6 @@ mod app {
 
         let step_length = systick_monotonic::ExtU64::micros(step_length_us as u64);
         let gate_length = systick_monotonic::ExtU64::micros(gate_length_us as u64);
-        let recording_cursor = 0;
-        let recording_mode = RecordingMode::Step;
 
         // setup keyboard using led matrix schema
         let keyboard = Keyboard::new(
@@ -215,8 +211,6 @@ mod app {
                 dac1,
                 dac2,
                 led_driver,
-                recording_cursor,
-                recording_mode,
                 spi_dac,
                 tracks,
             },
@@ -230,13 +224,13 @@ mod app {
     }
 
     extern "Rust" {
-        #[task(local = [keyboard], shared = [tracks, led_driver,  current_track, recording_cursor, recording_mode])]
+        #[task(local = [keyboard], shared = [tracks, led_driver,  current_track])]
         fn keyboard_ctrl(cx: keyboard_ctrl::Context);
 
         #[task(priority = 1, local = [step_length, gate_length], shared = [tracks, current_track])]
         fn tick(cx: tick::Context, instant: fugit::TimerInstantU64<100>);
 
-        #[task(shared = [tracks, led_driver, current_track, recording_cursor, recording_mode])]
+        #[task(shared = [tracks, led_driver, current_track])]
         fn led_ctrl(cx: led_ctrl::Context);
 
         #[task(shared = [tracks, dac1, dac2, spi_dac])]

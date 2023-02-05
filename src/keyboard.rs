@@ -153,7 +153,7 @@ impl Keyboard {
         }
     }
 
-    pub fn read(&mut self) -> &mut Self {
+    pub fn read(&mut self) {
         self.key_event.code = None;
         self.key_event.function = None;
         self.key_event.modifier = None;
@@ -196,7 +196,5 @@ impl Keyboard {
                 }
             }
         }
-
-        return self;
     }
 }

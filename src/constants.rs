@@ -24,6 +24,11 @@ pub const LED_OFF_COLOR: RGB<u8> = RGB {
     g: 0x00,
     b: 0x00,
 };
+pub const LED_RECORDING_CURSOR: RGB<u8> = RGB {
+    r: 0x00,
+    g: 0x08,
+    b: 0x08,
+};
 pub const LED_ACTIVE_TRACK_COLOR: [RGB<u8>; TRACKS_COUNT] = [
     RGB {
         b: 0x05,

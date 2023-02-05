@@ -40,11 +40,12 @@ PA6   LED data in (WS2812)
 
 | Key           | Description
 |---------------|--------------------------------------------------------------
-| Shift+Fn1     | Switch between recording mode: step or note
+| Shift+Fn1     | Switch between recording mode: gate or cv
 | Shift+Fn2     | Clear steps
 | Shift+Forward | Next track
 | Shift+Back    | Previous track
-| Fn1+Forward   | Toggle current track mode between CV and Gate
+| Fn1+Forward   | Toggle play/stop
+| Fn1+Back      | Toggle play/pause
 | Fn1+Step      | Select track number
 | Fn2+Step      | Randomize CV or Gate with probability based on the selected step
 | Forward       | Next octave

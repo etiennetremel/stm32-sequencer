@@ -6,16 +6,6 @@ use rtt_target::rprintln;
 
 use crate::constants::*;
 
-#[derive(Copy, Clone, Debug)]
-pub struct Track {
-    pub cursor: usize,
-    pub divide: u8,
-    pub pattern: [Step; STEPS_COUNT],
-    pub playing: bool,
-    pub mode: TrackMode,
-    seed: u64,
-}
-
 // Track can either be Gate or CV out
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum TrackMode {
@@ -56,13 +46,31 @@ pub struct Step {
     pub velocity: u8,
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct Track {
+    cursor: usize,
+    divide: u8,
+    length: usize,
+    pattern: [Step; STEPS_COUNT],
+    play: bool,
+    mode: TrackMode,
+    seed: u64,
+}
+
+impl Default for Track {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Track {
     pub fn new() -> Track {
-        return Track {
+        Track {
             cursor: 0,
             divide: 0,
+            length: STEPS_COUNT,
             seed: 0,
-            playing: true,
+            play: true,
             mode: TrackMode::GATE,
             pattern: [Step {
                 gate: Gate::OFF,
@@ -70,26 +78,68 @@ impl Track {
                 octave: 0,
                 note: Note::C,
             }; STEPS_COUNT],
-        };
+        }
+    }
+
+    pub fn get_track_length(&mut self) -> usize {
+        self.length
+    }
+
+    pub fn get_gate(&mut self, index: usize) -> Gate {
+        self.pattern[index].gate
+    }
+
+    pub fn get_current_gate(&mut self) -> Gate {
+        self.pattern[self.cursor].gate
+    }
+
+    pub fn get_note(&mut self, index: usize) -> Note {
+        self.pattern[index].note
+    }
+
+    pub fn get_current_note(&mut self) -> Note {
+        self.pattern[self.cursor].note
+    }
+
+    pub fn get_cursor(&mut self) -> usize {
+        self.cursor
+    }
+
+    pub fn get_mode(&mut self) -> TrackMode {
+        self.mode
     }
 
     pub fn set_mode(&mut self, mode: TrackMode) -> &mut Self {
+        if mode == TrackMode::CV {
+            self.stop();
+        }
         self.mode = mode;
-        return self;
+        self
     }
 
     pub fn toggle_mode(&mut self) -> &mut Self {
         if self.mode == TrackMode::GATE {
-            self.mode = TrackMode::CV;
+            self.set_mode(TrackMode::CV);
         } else {
-            self.mode = TrackMode::GATE;
+            self.set_mode(TrackMode::GATE);
         }
-        return self;
+        self
+    }
+
+    pub fn record_note(&mut self, note: Note) -> &mut Self {
+        self.pattern[self.cursor].note = note;
+        if self.cursor < self.get_track_length() - 1 {
+            self.cursor += 1;
+        } else {
+            self.cursor = 0;
+            self.play();
+        }
+        self
     }
 
     pub fn set_gate(&mut self, index: usize, state: Gate) -> &mut Self {
         self.pattern[index].gate = state;
-        return self;
+        self
     }
 
     pub fn toggle_step(&mut self, index: usize) -> &mut Self {
@@ -98,32 +148,25 @@ impl Track {
         } else {
             self.pattern[index].gate = Gate::ON;
         }
-        return self;
+        self
     }
 
     pub fn set_note(&mut self, index: usize, note: Note) -> &mut Self {
         self.pattern[index].note = note;
-        return self;
+        self
     }
 
     pub fn tick(&mut self) -> &mut Self {
-        if !self.playing {
+        if !self.play {
             return self;
         }
-        self.cursor += 1;
-        if self.cursor >= self.pattern.len() {
+        if self.cursor < self.get_track_length() - 1 {
+            self.cursor += 1;
+        } else {
             self.reset();
         }
-        return self;
+        self
     }
-
-    // pub fn randomise_note(&mut self) {
-    //     for i in 0..self.pattern.len() {
-    //         self.pattern[i].note = rng.gen();
-    //     }
-    //     rprintln!("Randomized note pattern {:?}", self.pattern);
-    //     return;
-    // }
 
     pub fn randomize(&mut self, _probability: f64) -> &mut Self {
         // TODO: review seeding logic, executing seeding logic on every random
@@ -134,39 +177,59 @@ impl Track {
         self.seed = rng.next_u64();
 
         // TODO: check how to implement probability
-        for i in 0..self.pattern.len() {
+        for i in 0..self.get_track_length() {
             self.pattern[i].note = rng.gen();
             self.pattern[i].gate = rng.gen();
         }
         rprintln!("Randomized pattern {:?}", self.pattern);
-        return self;
+        self
     }
 
     pub fn clear(&mut self) -> &mut Self {
-        for i in 0..self.pattern.len() {
+        for i in 0..self.get_track_length() {
             self.pattern[i].gate = Gate::OFF;
             self.pattern[i].note = Note::C;
         }
-        return self;
+        self
     }
 
-    fn reset(&mut self) {
+    pub fn reset(&mut self) -> &mut Self {
         self.cursor = 0;
+        self
     }
 
-    // TODO: handle play/stop per track
-    // fn play(&mut self) {
-    //     self.playing = true;
-    // }
-    //
-    // fn stop(&mut self) {
-    //     self.pause();
-    //     self.reset();
-    // }
-    //
-    // fn pause(&mut self) {
-    //     self.playing = false;
-    // }
+    pub fn play(&mut self) -> &mut Self {
+        self.play = true;
+        self
+    }
+
+    pub fn toggle_play(&mut self) -> &mut Self {
+        if self.is_playing() {
+            self.stop();
+        } else {
+            self.play();
+        }
+        self
+    }
+
+    pub fn stop(&mut self) -> &mut Self {
+        self.play = false;
+        self.reset();
+        self
+    }
+
+    pub fn toggle_pause(&mut self) -> &mut Self {
+        if self.is_playing() {
+            self.play = false;
+        } else {
+            self.play = true;
+        }
+        self
+    }
+
+    pub fn is_playing(&mut self) -> bool {
+        self.play
+    }
 }
 
 impl Distribution<Gate> for Standard {
@@ -181,7 +244,7 @@ impl Distribution<Gate> for Standard {
 
 impl Distribution<Note> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Note {
-        match rng.gen_range(0..=10) {
+        match rng.gen_range(0..=11) {
             0 => Note::A,
             1 => Note::Ab,
             2 => Note::B,
