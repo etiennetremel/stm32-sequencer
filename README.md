@@ -54,6 +54,10 @@ PA6   LED data in (WS2812)
 ## Development
 
 ###  Getting started
+```bash
+cargo install cargo-embed
+rustup target add thumbv7m-none-eabi
+```
 
 ```bash
 cargo embed --release
